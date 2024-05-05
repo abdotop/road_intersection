@@ -182,25 +182,31 @@ impl Engine {
         let mut cars_clone = self.cars.clone();
         for car in cars_clone.iter_mut() {
             let mut new_position = car.position.clone();
+            let traffic_light_state = match car.direction.as_str() {
+                "south-end" => self.traffic_lights.get("south-end").unwrap().is_on,
+                "south-start" => self.traffic_lights.get("south-start").unwrap().is_on,
+                "west-end" => self.traffic_lights.get("west-end").unwrap().is_on,
+                "east-start" => self.traffic_lights.get("east-start").unwrap().is_on,
+                _ => false,
+            };
             match car.direction.as_str() {
                 "south-end" => {
-                    if self.traffic_lights.get("south-end").unwrap().is_on || new_position.y < 380 || new_position.y > 390{
+                    if traffic_light_state || new_position.y < 380 || new_position.y > 390 {
                         new_position.y -= car.speed as i32;
                     }
                 }
                 "south-start" => {
-                    if self.traffic_lights.get("south-start").unwrap().is_on || new_position.y <260 || new_position.y > 270{
+                    if traffic_light_state || new_position.y < 260 || new_position.y > 270 {
                         new_position.y += car.speed as i32;
                     }
                 }
                 "west-end" => {
-                    if self.traffic_lights.get("west-end").unwrap().is_on || new_position.x < 455 || new_position.x > 465 {
+                    if traffic_light_state || new_position.x < 455 || new_position.x > 465 {
                         new_position.x -= car.speed as i32;
-                        
                     }
                 }
                 "east-start" => {
-                    if self.traffic_lights.get("east-start").unwrap().is_on || new_position.x < 335 || new_position.x > 345 {
+                    if traffic_light_state || new_position.x < 335 || new_position.x > 345 {
                         new_position.x += car.speed as i32;
                     }
                 }
@@ -208,15 +214,14 @@ impl Engine {
             }
             if !self.will_collide(new_position, car, &self.cars) {
                 car.move_car(new_position);
-                // println!("{:?},car", car.position);
             }
             if !car.direction_change {
                 self.change_direction(car);
             }
         }
-
         self.cars = cars_clone;
     }
+    
 
     // fn remove_cars remove car over the road
     fn remove_cars(&mut self) {
