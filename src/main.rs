@@ -3,14 +3,9 @@ use std::collections::HashMap;
 use engine::Road;
 use sdl2::{pixels::Color, rect::Point};
 
-// extern crate sdl2;
 mod engine;
 mod view;
 
-// use sdl2::event::Event;
-// use sdl2::keyboard::Keycode;
-// use sdl2::pixels::Color;
-// use std::time::Duration;
 
 fn main() {
     let mut roads: HashMap<String, Road> = HashMap::<String, Road>::new();
@@ -95,7 +90,4 @@ fn main() {
 
     let mut sumulation = engine::Engine::new(roads);
     sumulation.start()
-    // let sdl_context = sdl2::init().unwrap();
-
-    // /
 }

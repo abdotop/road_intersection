@@ -6,15 +6,12 @@ use sdl2::pixels::Color;
 use sdl2::rect::Point;
 use std::collections::HashMap;
 use std::time::Duration;
-// use rodio::Source;
+// use sdl2::pixels::Color;
 
-// use sdl2::rect::Rect;
 use sdl2::render::Canvas;
 use sdl2::video::Window;
 
 pub use self::road::*;
-
-// use view::*;
 
 #[derive(Clone)]
 pub struct Engine {
@@ -22,15 +19,26 @@ pub struct Engine {
     running: bool,
     roads: HashMap<String, Road>,
     cars: Vec<Car>,
+    traffic_lights: HashMap<String, TrafficLight>,
 }
 
 impl Engine {
     pub fn new(roads: HashMap<String, Road>) -> Self {
+        let mut traffic_lights = HashMap::<String, TrafficLight>::new();
+        traffic_lights.insert("a".to_string(), TrafficLight::new(Point::new(342, 260)));
+        traffic_lights.insert("da".to_string(), TrafficLight::new(Point::new(465, 268)));
+        traffic_lights.insert("s".to_string(), TrafficLight::new(Point::new(458, 390)));
+        traffic_lights.insert("c".to_string(), TrafficLight::new(Point::new(335, 383)));
+        // TrafficLight::new(Point::new(342, 260)).draw(&mut canvas);
+        //    TrafficLight::new(Point::new(465, 268)).draw(&mut canvas);
+        //    TrafficLight::new(Point::new(458, 390)).draw(&mut canvas);
+        //    TrafficLight::new(Point::new(335, 383)).draw(&mut canvas);
         Self {
             sdl_context: Some(sdl2::init().unwrap()),
             running: false,
             roads,
             cars: Vec::<Car>::new(),
+            traffic_lights,
         }
     }
 
@@ -51,14 +59,52 @@ impl Engine {
                 road.1.draw(&mut canvas);
             }
 
+            self.traffic_lcontrol();
+
+            for traffic_light in &mut self.traffic_lights {
+                traffic_light.1.draw(&mut canvas);
+            }
+
             self.draw_cars(&mut canvas);
 
-            // canvas.set_draw_color(Color::RGB(255, 0, 0));
-            // canvas.fill_rect(Rect::new(x, 280, 40, 40)).unwrap();
             canvas.present();
             ::std::thread::sleep(Duration::new(0, 1_000_000_000u32 / 60));
             // Déplacez le bloc à droite
             self.move_cars();
+        }
+    }
+
+    fn traffic_lcontrol(&mut self) {
+        for (road_name, traffic_light) in &mut self.traffic_lights {
+            // Increment the timer
+            traffic_light.timer += 1;
+
+            // Get the number of cars on this road
+            let car_count = self
+                .cars
+                .iter()
+                .filter(|car| car.direction == *road_name)
+                .count();
+
+            // If the timer has reached the limit...
+            if traffic_light.timer
+                >= if traffic_light.is_on {
+                    // If the light is green, the limit is higher for roads with more cars
+                    60 * (car_count as u32 + 1)
+                } else {
+                    // If the light is red, the limit is lower for roads with more cars
+                    60 * (5 - car_count as u32).max(1)
+                }
+            {
+                // Reset the timer
+                traffic_light.timer = 0;
+
+                // Switch the traffic light color
+                match traffic_light.is_on {
+                    true => traffic_light.turn_off(),
+                    false => traffic_light.turn_on(),
+                };
+            }
         }
     }
 
@@ -94,7 +140,6 @@ impl Engine {
     }
 
     pub fn add_car(&mut self, direction: &str) {
-        // let road = self.roads.get(direction).unwrap();
         let adjacent = match direction {
             "north-start" => "south-end",
             "south-start" => "south-start",
@@ -120,7 +165,7 @@ impl Engine {
             }
             "east-start" => {
                 new_car.position.x = road_adjacent.end.x;
-                new_car.position.y = road_adjacent.end.y;
+                new_car.position.y = road_adjacent.end.y + 5;
             }
             _ => {
                 return;
@@ -129,7 +174,6 @@ impl Engine {
         if !self.will_collide(new_car.position, &mut new_car, &self.cars) {
             self.cars.push(new_car.clone());
         }
-        println!("Car added {:?} {:?}", new_car.direction, new_car.position);
     }
 
     fn move_cars(&mut self) {
@@ -141,18 +185,15 @@ impl Engine {
                     if new_position.y < 0 {
                         self.cars.retain(|c| c.id != car.id);
                     }
-                    // println!("south-end {:?}", car.position);
                     new_position.y -= car.speed as i32;
                 }
                 "south-start" => {
                     new_position.y += car.speed as i32;
                 }
                 "west-end" => {
-                    // println!("west-end {:?}", car.position);
                     new_position.x -= car.speed as i32;
                 }
                 "east-start" => {
-                    // println!("east-end {:?}", car.position);
                     new_position.x += car.speed as i32;
                 }
                 _ => {}
@@ -179,10 +220,46 @@ impl Engine {
                     car.direction_change = true;
                     car.direction = car.new_direction.clone();
                     car.position.y = 330;
-                    println!("east-start {:?}={}", car.position, car.new_direction);
                 } else if car.new_direction == "south-end" {
-                    println!("South-start {:?}={}", car.position, car.new_direction);
-                    
+                    car.direction_change = true;
+                }
+            }
+            "south-start" => {
+                if car.new_direction == "east-start" && car.position.y > 330 {
+                    car.direction_change = true;
+                    car.direction = car.new_direction.clone();
+                    car.position.y = 330;
+                } else if car.new_direction == "west-end" && car.position.y > 280 {
+                    car.direction_change = true;
+                    car.direction = car.new_direction.clone();
+                    car.position.y = 280;
+                } else if car.new_direction == "south-start" {
+                    car.direction_change = true;
+                }
+            }
+            "west-end" => {
+                if car.new_direction == "south-start" && car.position.x < 355 {
+                    car.direction_change = true;
+                    car.direction = car.new_direction.clone();
+                    car.position.x = 355;
+                } else if car.new_direction == "south-end" && car.position.x < 405 {
+                    car.direction = car.new_direction.clone();
+                    car.direction_change = true;
+                    car.position.x = 405;
+                } else if car.new_direction == "west-end" {
+                    car.direction_change = true;
+                }
+            }
+            "east-start" => {
+                if car.new_direction == "south-end" && car.position.x > 405 {
+                    car.direction_change = true;
+                    car.direction = car.new_direction.clone();
+                    car.position.x = 405;
+                } else if car.new_direction == "south-start" && car.position.x > 355 {
+                    car.direction_change = true;
+                    car.direction = car.new_direction.clone();
+                    car.position.x = 355;
+                } else if car.new_direction == "east-start" {
                     car.direction_change = true;
                 }
             }
@@ -194,27 +271,19 @@ impl Engine {
         let mut rng = rand::thread_rng();
         let new_direction = match current_direction {
             "south-start" => {
-                let directions = ["west-start", "east-start", "south-end"];
+                let directions = ["east-start", "west-end", "south-start"];
                 directions[rng.gen_range(0..3)].to_string()
             }
             "south-end" => {
-                let directions = ["west-end", "east-start", "east-start",];
-                directions[rng.gen_range(0..3)].to_string()
-            }
-            "west-start" => {
-                let directions = ["south-start", "north-start", "west-end"];
+                let directions = ["west-end", "south-end", "east-start"];
                 directions[rng.gen_range(0..3)].to_string()
             }
             "west-end" => {
-                let directions = ["south-end", "north-end", "west-start"];
+                let directions = ["south-start", "south-end", "west-end"];
                 directions[rng.gen_range(0..3)].to_string()
             }
             "east-start" => {
-                let directions = ["south-start", "north-start", "east-end"];
-                directions[rng.gen_range(0..3)].to_string()
-            }
-            "east-end" => {
-                let directions = ["south-end", "north-end", "east-start"];
+                let directions = ["south-start", "south-end", "east-end"];
                 directions[rng.gen_range(0..3)].to_string()
             }
             _ => current_direction.to_string(),
@@ -223,12 +292,13 @@ impl Engine {
     }
 
     fn will_collide(&self, new_position: Point, car: &mut Car, cars: &Vec<Car>) -> bool {
+        let safety_distance: i32 = 5;
         for other_car in cars {
             if other_car.id != car.id
-                && new_position.x < other_car.position.x + other_car.width as i32
-                && new_position.x + car.width as i32 > other_car.position.x
-                && new_position.y < other_car.position.y + other_car.heith as i32
-                && new_position.y + car.heith as i32 > other_car.position.y
+                && new_position.x < other_car.position.x + other_car.width as i32 + safety_distance
+                && new_position.x + car.width as i32 + safety_distance > other_car.position.x
+                && new_position.y < other_car.position.y + other_car.height as i32 + safety_distance
+                && new_position.y + car.height as i32 + safety_distance > other_car.position.y
             {
                 car.speed = other_car.speed;
                 return true;
@@ -236,8 +306,6 @@ impl Engine {
         }
         false
     }
-
-    // random new end direction for the car when it reaches the end of the road
 
     pub fn draw_cars(&mut self, canvas: &mut Canvas<Window>) {
         for car in &mut self.cars {
