@@ -43,6 +43,7 @@ impl Engine {
     }
 
     fn game_loop(&mut self) {
+        self.initialize_traffic_lights();
         let mut board = crate::view::Board::new("Road Intersection Simulation", 650, 800);
         let mut canvas: Canvas<Window> = board.init(&self.sdl_context.as_ref().unwrap()).unwrap();
         let mut event_pump = self.sdl_context.as_ref().unwrap().event_pump().unwrap();
@@ -75,54 +76,53 @@ impl Engine {
         }
     }
 
+    fn initialize_traffic_lights(&mut self) {
+        // Turn off all traffic lights and reset their timers
+        for (_, traffic_light) in &mut self.traffic_lights {
+            traffic_light.turn_off();
+            traffic_light.timer = 0;
+        }
+    }
     fn traffic_lcontrol(&mut self) {
+        // Variable to keep track of whether any traffic light is turned on
+        let mut any_light_on = false;
+    
         for (road_name, traffic_light) in &mut self.traffic_lights {
             // Increment the timer
             traffic_light.timer += 1;
-
+    
             // Get the number of cars on this road
             let car_count = self
                 .cars
                 .iter()
-                .filter(|car| {
-                    car.direction == *road_name && car.direction_change == false
-                })
+                .filter(|car| car.direction == *road_name)
                 .count();
-
-            // Get the number of cars in the intersection with a different new_direction
-            let intersection_count = self
-                .cars
-                .iter()
-                .filter(|car| {
-                    car.position.x >= 350 && car.position.x <= 450 && car.position.y >= 275 && car.position.y <= 375 && car.new_direction != car.direction
-                })
-                .count();
-
-            // Calculate the limit based on the number of cars
-            let limit = if traffic_light.is_on {
-                // If the light is green, the limit is higher for roads with more cars
-                90 * (car_count as u32 + 1)
-            } else {
-                // If the light is red, the limit is lower for roads with fewer cars
-                90 * (5u32.saturating_sub(car_count as u32)).max(1)
-            };
-
-            // Define a threshold for the maximum number of cars in the intersection
-            let intersection_threshold = 1;
-
-            // If the timer has reached the limit and the intersection count is less than the threshold...
-            if traffic_light.timer >= limit && intersection_count < intersection_threshold {
+    
+            // If the timer has reached the limit...
+            if traffic_light.timer
+                >= if traffic_light.is_on {
+                    // If the light is green, the limit is higher for roads with more cars
+                    60 * (car_count as u32 + 1)
+                } else {
+                    // If the light is red, the limit is lower for roads with more cars
+                    100 * (5u32.saturating_sub(car_count as u32)).max(1)
+                }
+            {
                 // Reset the timer
                 traffic_light.timer = 0;
-
-                // Switch the traffic light color
-                match traffic_light.is_on {
-                    true => traffic_light.turn_off(),
-                    false => traffic_light.turn_on(),
-                };
-            } else if intersection_count >= intersection_threshold {
-                // If the intersection count is greater than or equal to the threshold, force the traffic light to red
-                traffic_light.turn_off();
+    
+                // If any light is already on, turn it off
+                if any_light_on {
+                    traffic_light.turn_off();
+                } else {
+                    // Otherwise, switch the traffic light color
+                    match traffic_light.is_on {
+                        true => traffic_light.turn_off(),
+                        false => traffic_light.turn_on(),
+                    };
+                    // Update any_light_on to indicate a light is now on
+                    any_light_on = true;
+                }
             }
         }
     }
@@ -232,13 +232,14 @@ impl Engine {
             }
             if !self.will_collide(new_position, car, &self.cars) {
                 car.move_car(new_position);
-            }
-            if !car.direction_change {
+            } else {
+                // Change direction if there's a collision
                 self.change_direction(car);
             }
         }
         self.cars = cars_clone;
     }
+    
     
 
     // fn remove_cars remove car over the road
