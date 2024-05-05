@@ -61,6 +61,7 @@ mod car {
     use sdl2::rect::Rect;
     use sdl2::render::Canvas;
     use sdl2::video::Window;
+    use rand::random;
 
     #[derive(Clone)]
     pub struct Car {
@@ -69,8 +70,11 @@ mod car {
         pub width: u8,
         color: Color,
         pub speed: u8,
+        pub id : u32,
         // pub cars: Vec<car::Car>,
         pub direction: String,
+        pub direction_change: bool,
+        pub new_direction: String,
         // pub road_start_or_end: String,
     }
 
@@ -78,6 +82,7 @@ mod car {
         pub fn new(position: Point, color: Color, direction: &str) -> Self {
             // random speed between 1 and 5 for each car
             let speed = unsafe { rand() % 5 + 1 };
+            let id: u32 = random();
 
             Self {
                 position,
@@ -86,6 +91,9 @@ mod car {
                 color,
                 direction: direction.to_string(),
                 speed: speed as u8,
+                id,
+                direction_change: false,
+                new_direction: "".to_string(),
             }
         }
 

@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use engine::{Car, Road};
+use engine::Road;
 use sdl2::{pixels::Color, rect::Point};
 
 // extern crate sdl2;
