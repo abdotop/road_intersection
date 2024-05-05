@@ -84,19 +84,34 @@ impl Engine {
             let car_count = self
                 .cars
                 .iter()
-                .filter(|car| car.direction == *road_name)
+                .filter(|car| {
+                    car.direction == *road_name && car.direction_change == false
+                })
                 .count();
 
-            // If the timer has reached the limit...
-            if traffic_light.timer
-                >= if traffic_light.is_on {
-                    // If the light is green, the limit is higher for roads with more cars
-                    60 * (car_count as u32 + 1)
-                } else {
-                    // If the light is red, the limit is lower for roads with more cars
-                    60 * (5u32.saturating_sub(car_count as u32)).max(1)
-                }
-            {
+            // Get the number of cars in the intersection
+            let intersection_count = self
+                .cars
+                .iter()
+                .filter(|car| {
+                    car.position.x >= 350 && car.position.x <= 450 && car.position.y >= 275 && car.position.y <= 375
+                })
+                .count();
+
+            // Calculate the limit based on the number of cars
+            let limit = if traffic_light.is_on {
+                // If the light is green, the limit is higher for roads with more cars
+                60 * (car_count as u32 + 1)
+            } else {
+                // If the light is red, the limit is lower for roads with fewer cars
+                60 * (5u32.saturating_sub(car_count as u32)).max(1)
+            };
+
+            // Define a threshold for the maximum number of cars in the intersection
+            let intersection_threshold = 10;
+
+            // If the timer has reached the limit and the intersection count is less than the threshold...
+            if traffic_light.timer >= limit && intersection_count < intersection_threshold {
                 // Reset the timer
                 traffic_light.timer = 0;
 
@@ -105,6 +120,9 @@ impl Engine {
                     true => traffic_light.turn_off(),
                     false => traffic_light.turn_on(),
                 };
+            } else if intersection_count >= intersection_threshold {
+                // If the intersection count is greater than or equal to the threshold, force the traffic light to red
+                traffic_light.turn_off();
             }
         }
     }
