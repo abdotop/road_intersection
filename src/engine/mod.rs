@@ -25,10 +25,10 @@ pub struct Engine {
 impl Engine {
     pub fn new(roads: HashMap<String, Road>) -> Self {
         let mut traffic_lights = HashMap::<String, TrafficLight>::new();
-        traffic_lights.insert("a".to_string(), TrafficLight::new(Point::new(342, 260)));
-        traffic_lights.insert("da".to_string(), TrafficLight::new(Point::new(465, 268)));
-        traffic_lights.insert("s".to_string(), TrafficLight::new(Point::new(458, 390)));
-        traffic_lights.insert("c".to_string(), TrafficLight::new(Point::new(335, 383)));
+        traffic_lights.insert("south-start".to_string(), TrafficLight::new(Point::new(342, 260)));
+        traffic_lights.insert("west-end".to_string(), TrafficLight::new(Point::new(465, 268)));
+        traffic_lights.insert("south-end".to_string(), TrafficLight::new(Point::new(458, 390)));
+        traffic_lights.insert("east-start".to_string(), TrafficLight::new(Point::new(335, 383)));
         // TrafficLight::new(Point::new(342, 260)).draw(&mut canvas);
         //    TrafficLight::new(Point::new(465, 268)).draw(&mut canvas);
         //    TrafficLight::new(Point::new(458, 390)).draw(&mut canvas);
@@ -60,6 +60,7 @@ impl Engine {
             }
 
             self.traffic_lcontrol();
+            self.remove_cars();
 
             for traffic_light in &mut self.traffic_lights {
                 traffic_light.1.draw(&mut canvas);
@@ -93,7 +94,7 @@ impl Engine {
                     60 * (car_count as u32 + 1)
                 } else {
                     // If the light is red, the limit is lower for roads with more cars
-                    60 * (5 - car_count as u32).max(1)
+                    60 * (5u32.saturating_sub(car_count as u32)).max(1)
                 }
             {
                 // Reset the timer
@@ -174,6 +175,7 @@ impl Engine {
         if !self.will_collide(new_car.position, &mut new_car, &self.cars) {
             self.cars.push(new_car.clone());
         }
+        println!("{:?},new car", new_car.direction);
     }
 
     fn move_cars(&mut self) {
@@ -182,24 +184,31 @@ impl Engine {
             let mut new_position = car.position.clone();
             match car.direction.as_str() {
                 "south-end" => {
-                    if new_position.y < 0 {
-                        self.cars.retain(|c| c.id != car.id);
+                    if self.traffic_lights.get("south-end").unwrap().is_on || new_position.y < 380 || new_position.y > 390{
+                        new_position.y -= car.speed as i32;
                     }
-                    new_position.y -= car.speed as i32;
                 }
                 "south-start" => {
-                    new_position.y += car.speed as i32;
+                    if self.traffic_lights.get("south-start").unwrap().is_on || new_position.y <260 || new_position.y > 270{
+                        new_position.y += car.speed as i32;
+                    }
                 }
                 "west-end" => {
-                    new_position.x -= car.speed as i32;
+                    if self.traffic_lights.get("west-end").unwrap().is_on || new_position.x < 455 || new_position.x > 465 {
+                        new_position.x -= car.speed as i32;
+                        
+                    }
                 }
                 "east-start" => {
-                    new_position.x += car.speed as i32;
+                    if self.traffic_lights.get("east-start").unwrap().is_on || new_position.x < 335 || new_position.x > 345 {
+                        new_position.x += car.speed as i32;
+                    }
                 }
                 _ => {}
             }
             if !self.will_collide(new_position, car, &self.cars) {
                 car.move_car(new_position);
+                // println!("{:?},car", car.position);
             }
             if !car.direction_change {
                 self.change_direction(car);
@@ -207,6 +216,19 @@ impl Engine {
         }
 
         self.cars = cars_clone;
+    }
+
+    // fn remove_cars remove car over the road
+    fn remove_cars(&mut self) {
+        self.cars.retain(|car| {
+            match car.direction.as_str() {
+                "south-end" => car.position.y >= -50,
+                "south-start" => car.position.y <= 700,
+                "west-end" => car.position.x >= -50,
+                "east-start" => car.position.x <= 850,
+                _ => true,
+            }
+        });
     }
 
     fn change_direction(&mut self, car: &mut Car) {
