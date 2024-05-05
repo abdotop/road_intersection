@@ -89,26 +89,26 @@ impl Engine {
                 })
                 .count();
 
-            // Get the number of cars in the intersection
+            // Get the number of cars in the intersection with a different new_direction
             let intersection_count = self
                 .cars
                 .iter()
                 .filter(|car| {
-                    car.position.x >= 350 && car.position.x <= 450 && car.position.y >= 275 && car.position.y <= 375
+                    car.position.x >= 350 && car.position.x <= 450 && car.position.y >= 275 && car.position.y <= 375 && car.new_direction != car.direction
                 })
                 .count();
 
             // Calculate the limit based on the number of cars
             let limit = if traffic_light.is_on {
                 // If the light is green, the limit is higher for roads with more cars
-                60 * (car_count as u32 + 1)
+                90 * (car_count as u32 + 1)
             } else {
                 // If the light is red, the limit is lower for roads with fewer cars
-                60 * (5u32.saturating_sub(car_count as u32)).max(1)
+                90 * (5u32.saturating_sub(car_count as u32)).max(1)
             };
 
             // Define a threshold for the maximum number of cars in the intersection
-            let intersection_threshold = 10;
+            let intersection_threshold = 1;
 
             // If the timer has reached the limit and the intersection count is less than the threshold...
             if traffic_light.timer >= limit && intersection_count < intersection_threshold {
@@ -209,22 +209,22 @@ impl Engine {
             };
             match car.direction.as_str() {
                 "south-end" => {
-                    if traffic_light_state || new_position.y < 380 || new_position.y > 390 {
+                    if traffic_light_state || new_position.y < 425 || new_position.y > 435 {
                         new_position.y -= car.speed as i32;
                     }
                 }
                 "south-start" => {
-                    if traffic_light_state || new_position.y < 260 || new_position.y > 270 {
+                    if traffic_light_state || new_position.y < 215 || new_position.y > 225 {
                         new_position.y += car.speed as i32;
                     }
                 }
                 "west-end" => {
-                    if traffic_light_state || new_position.x < 455 || new_position.x > 465 {
+                    if traffic_light_state || new_position.x < 500 || new_position.x > 510 {
                         new_position.x -= car.speed as i32;
                     }
                 }
                 "east-start" => {
-                    if traffic_light_state || new_position.x < 335 || new_position.x > 345 {
+                    if traffic_light_state || new_position.x < 290 || new_position.x > 300 {
                         new_position.x += car.speed as i32;
                     }
                 }
